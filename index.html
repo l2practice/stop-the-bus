@@ -817,8 +817,101 @@ function toggleTheme() {
 // ─── PDF ─────────────────────────────────────────────────────────────────────
 function exportPDF() {
   var letter = document.getElementById('starting-letter').value.toUpperCase() || '?';
-  document.body.setAttribute('data-print-info', 'Letter: ' + letter + ' · ' + new Date().toLocaleDateString('en-GB'));
-  window.print();
+  var dateStr = new Date().toLocaleDateString('en-GB');
+
+  // Build a clean, fixed-layout HTML page for printing
+  var CAT_LABELS = ['3 Morphemes', '1 Derivational', '2 Derivational', '1 Inflectional', '1 Deri + 1 Infl'];
+  var CAT_RULES  = ['exactly 3 morphemes total','exactly 1 derivational morpheme','exactly 2 derivational morphemes','exactly 1 inflectional, zero derivational','1 derivational AND 1 inflectional'];
+
+  function pillHTML(m) {
+    var bg = m.type === 'root' ? '#DBEAFE' : m.type === 'derivational' ? '#DCFCE7' : '#FEE2E2';
+    var cl = m.type === 'root' ? '#1D4ED8' : m.type === 'derivational' ? '#16A34A' : '#DC2626';
+    var bd = m.type === 'root' ? '#93C5FD' : m.type === 'derivational' ? '#86EFAC' : '#FCA5A5';
+    var lbl = m.type === 'root' ? 'ROOT' : m.type === 'derivational' ? 'DERIV' : 'INFL';
+    return '<span style="display:inline-flex;flex-direction:column;align-items:center;background:' + bg + ';color:' + cl + ';border:1px solid ' + bd + ';border-radius:4px;padding:2px 7px;margin:1px;font-family:monospace;font-size:11px;font-weight:700;line-height:1.3">' +
+      '<span>' + m.form + '</span>' +
+      '<span style="font-size:8px;opacity:.7">' + lbl + '</span>' +
+      '</span>';
+  }
+
+  // Table header
+  var thCells = '<th style="width:32px;background:#1E293B;color:#F1F5F9;padding:6px 4px;font-size:9px;border:1px solid #475569"></th>';
+  for (var ci = 0; ci < 5; ci++) {
+    thCells += '<th style="background:#1E293B;color:#F1F5F9;border:1px solid #475569;border-top:3px solid #F59E0B;padding:6px 8px;font-size:10px;font-weight:700;text-align:center">' +
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#F59E0B;color:#000;font-size:9px;font-weight:800;margin-right:4px">' + (ci+1) + '</span>' +
+      CAT_LABELS[ci] +
+      '<br><span style="font-size:8px;color:#94A3B8;font-weight:400">' + CAT_RULES[ci] + '</span></th>';
+  }
+  thCells += '<th style="background:#1E293B;color:#F1F5F9;border:1px solid #475569;padding:6px 4px;font-size:9px;text-align:center;width:64px">WINNER</th>';
+
+  // Table rows
+  var rowsHTML = '';
+  for (var r = 0; r < NUM_ROWS; r++) {
+    rowsHTML += '<tr>';
+    // Letter cell
+    rowsHTML += '<td style="border:1px solid #CBD5E1;text-align:center;font-size:18px;font-weight:800;color:#D97706;padding:4px;width:32px">' + (rowLetters[r] || '') + '</td>';
+
+    for (var c = 0; c < 5; c++) {
+      var cell = cells[r][c];
+      var isValid = cell.status === 'valid';
+      var bgColor = cell.status === 'valid' ? '#F0FDF4' : cell.status === 'invalid' ? '#FFF1F2' : '#fff';
+      var bdColor = cell.status === 'valid' ? '#22C55E'  : cell.status === 'invalid' ? '#EF4444'  : '#CBD5E1';
+
+      var inner = '';
+      if (cell.word) {
+        inner += '<div style="font-size:14px;font-weight:800;text-align:center;color:#0F172A;margin-bottom:4px">' + cell.word + '</div>';
+        if (isValid) {
+          var badgeColor = '#16A34A'; var badgeBg = '#DCFCE7'; var badgeBd = '#86EFAC';
+          inner += '<div style="text-align:center;margin-bottom:4px"><span style="font-size:9px;font-weight:700;background:' + badgeBg + ';color:' + badgeColor + ';border:1px solid ' + badgeBd + ';border-radius:20px;padding:1px 7px">✓ CORRECT</span></div>';
+          if (cell.morphemes && cell.morphemes.length) {
+            inner += '<div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center">';
+            cell.morphemes.forEach(function(m, i) {
+              inner += pillHTML(m);
+              if (i < cell.morphemes.length - 1) inner += '<span style="align-self:center;color:#94A3B8;font-weight:700;margin:0 1px">·</span>';
+            });
+            inner += '</div>';
+          }
+        } else if (cell.status === 'invalid') {
+          inner += '<div style="text-align:center"><span style="font-size:9px;font-weight:700;background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;border-radius:20px;padding:1px 7px">✗ WRONG</span></div>';
+        }
+      }
+
+      rowsHTML += '<td style="border:1px solid ' + bdColor + ';background:' + bgColor + ';padding:8px 6px;vertical-align:middle;min-width:120px">' + inner + '</td>';
+    }
+
+    // Winner groups
+    var groups = [];
+    for (var c2 = 0; c2 < 5; c2++) cells[r][c2].groups.forEach(function(g){ if (groups.indexOf(g) === -1) groups.push(g); });
+    var groupsHTML = groups.map(function(g){
+      return '<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#F59E0B;color:#000;font-size:11px;font-weight:800;margin:2px">' + g + '</span>';
+    }).join('');
+    rowsHTML += '<td style="border:1px solid #CBD5E1;text-align:center;padding:4px;width:64px">' + groupsHTML + '</td>';
+    rowsHTML += '</tr>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<title>Stop the Bus — Letter ' + letter + '</title>' +
+    '<style>' +
+    'body{margin:0;padding:12px;font-family:Inter,sans-serif;background:#fff}' +
+    'h2{font-size:14px;font-weight:800;margin:0 0 2px;color:#0F172A}' +
+    '.sub{font-size:10px;color:#64748B;margin-bottom:10px}' +
+    'table{width:100%;border-collapse:collapse;table-layout:fixed}' +
+    '@media print{' +
+    '  @page{margin:10mm;size:A4 landscape}' +
+    '  body{padding:0}' +
+    '  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
+    '}' +
+    '</style></head><body>' +
+    '<h2>🚌 Stop the Bus — English Morphology</h2>' +
+    '<div class="sub">Letter: <strong>' + letter + '</strong> &nbsp;·&nbsp; Date: ' + dateStr + '</div>' +
+    '<table><thead><tr>' + thCells + '</tr></thead><tbody>' + rowsHTML + '</tbody></table>' +
+    '<script>window.onload=function(){window.print();}<\/script>' +
+    '</body></html>';
+
+  var blob = new Blob([html], { type: 'text/html' });
+  var url  = URL.createObjectURL(blob);
+  var win  = window.open(url, '_blank');
+  if (!win) showToast('Allow pop-ups to export PDF', 'e');
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
