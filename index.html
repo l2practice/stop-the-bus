@@ -725,145 +725,88 @@ async function checkWord(r, c) {
 }
 
 // ── CATEGORY-SPECIFIC PROMPTS ────────────────────────────────────────────────
-//
-// Inflectional morphemes are always suffixes, always grammatical:
-//   -s/-es (plural / 3rd person), -'s (possessive), -ed (past tense / v2),
-//   -en (past participle v3), -ing (progressive verb), -er (comparative), -est (superlative)
-//   -ly (adv, when base is adjective: quickly, physically)
-//
-// Derivational morphemes create a new word or change word class.
-// We detect inflectional endings rule-based first, then ask AI only what matters.
-//
-// The prompt for each category is a direct YES/NO question about the specific rule.
-
-const INFL_SUFFIXES = [
-  { suffix: "'s",  type: 'possessive'   },
-  { suffix: 's'',  type: 'plural-poss'  },
-  { suffix: 'iest', type: 'superlative'  }, // happiest
-  { suffix: 'ier',  type: 'comparative'  }, // happier
-  { suffix: 'est',  type: 'superlative'  },
-  { suffix: 'ing',  type: 'progressive'  },
-  { suffix: 'ed',   type: 'past'         },
-  { suffix: 'en',   type: 'participle'   }, // spoken, driven
-  { suffix: 'er',   type: 'comparative'  }, // taller — only when base is adjective
-  { suffix: 'es',   type: 'plural/3sg'   },
-  { suffix: 's',    type: 'plural/3sg'   },
-];
-
-// Detect likely inflectional suffix on a word (simple rule-based pre-check)
-function detectInflSuffix(word) {
-  const w = word.toLowerCase();
-  for (const { suffix, type } of INFL_SUFFIXES) {
-    if (w.endsWith(suffix) && w.length > suffix.length + 1) {
-      return { suffix, type, stem: w.slice(0, w.length - suffix.length) };
-    }
-  }
-  return null;
-}
-
 function buildPrompt(word, letter, catIndex) {
-  const w = word.trim();
-  const L = letter.toUpperCase();
+  var w = word.trim();
+  var L = letter.toUpperCase();
 
-  // ── Shared preamble ────────────────────────────────────────────────────────
-  const preamble = `You are an English morphology checker for a classroom game.
-Task: decide if the word "${w}" satisfies the rule below.
-Respond ONLY with raw JSON — no markdown, no extra text.
+  var defs = [
+    'Definitions:',
+    'ROOT: core lexical base (e.g. teach, happy, correct, manage, color).',
+    'INFLECTIONAL suffix (grammar, does NOT change word class):',
+    '  -s/-es (plural/3sg), -ed (past tense), -en (past participle),',
+    '  -ing (progressive verb), -er (comparative adj), -est (superlative),',
+    "  -'s (possessive), -ly (adverb when base is an adjective: quickly, physically).",
+    'DERIVATIONAL affix (changes word class or creates a new word):',
+    '  Suffixes: -tion/-ion/-sion, -ment, -ness, -ity, -ance/-ence,',
+    '  -er (agent noun: teacher/driver/manager), -ist, -al, -ic, -ous, -ive,',
+    '  -able/-ible, -ful, -less, -ize/-ise, -ify, -ary/-ory, -ward,',
+    '  -ing (when word is used as noun: meeting/coloring as N),',
+    '  -ed (when word is used as adjective: interested, tired).',
+    '  Prefixes: un-, re-, dis-, mis-, pre-, in-/im-, over-, sub-, non-, co-, de-, mal-.',
+    '',
+    'Letter check: "' + w + '" must start with "' + L + '" (case-insensitive).',
+    '',
+    'STRICT RULES:',
+    '- NEVER split a root into fake sub-parts ("correct" = 1 root, not cor+rect).',
+    '- NEVER invent morphemes to satisfy the rule.',
+    '- Report the REAL count then set isValid accordingly.',
+  ].join('\n');
 
-Definitions you must use:
-- ROOT: the core lexical base (e.g. teach, happy, correct, manage, color)
-- INFLECTIONAL suffix: grammatical only, does NOT change word class.
-  English has exactly 8 inflectional suffixes:
-  -s/-es (plural noun / 3rd-person verb), -'s (possessive),
-  -ed (past tense), -en (past participle), -ing (progressive/continuous verb),
-  -er (comparative adjective), -est (superlative adjective),
-  -ly (adverb from adjective, e.g. quickly, physically — base must be an adjective)
-- DERIVATIONAL suffix/prefix: changes word class or creates a new word.
-  Examples: -tion/-ion, -ment, -ness, -ity, -er (agent: teacher/driver),
-  -ist, -al, -ic, -ous, -ive, -able, -ful, -less, -ize, -ify,
-  un-, re-, dis-, mis-, pre-, in-/im-, over-, non-
+  var header = [
+    'You are an English morphology checker for a classroom game.',
+    'Analyze "' + w + '" and answer the specific rule below.',
+    'Output ONLY raw JSON — no markdown, no extra text.',
+    '',
+    defs,
+    '',
+  ].join('\n');
 
-Letter check: does "${w}" start with "${L}"? (case-insensitive)
-`;
+  var q = [
 
-  // ── Category-specific question ─────────────────────────────────────────────
-  const questions = [
+    /* 0 — exactly 3 morphemes total */
+    header +
+    'RULE: "' + w + '" must have EXACTLY 3 morphemes total (root + affixes summing to 3).\n' +
+    'Steps: (1) strip inflectional suffix if present (2) strip derivational affixes (3) count all parts.\n' +
+    'PASS: customers=custom+er+s(3), teachers=teach+er+s(3), unbelievable=un+believe+able(3)\n' +
+    'FAIL: correction=correct+ion(2), correct=1, coloring=color+ing(2)\n' +
+    'JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state total count>"}',
 
-    // Cat 1 — exactly 3 morphemes total
-    `${preamble}
-RULE: The word must have EXACTLY 3 morphemes in total (root + any mix of affixes summing to 3).
+    /* 1 — exactly 1 derivational, zero inflectional */
+    header +
+    'RULE: "' + w + '" must have EXACTLY 1 derivational morpheme and ZERO inflectional morphemes.\n' +
+    'Steps: (1) check for inflectional suffix — if found, fails (2) count derivational affixes — must be exactly 1.\n' +
+    'PASS: correction=correct+ion(1deriv,0infl), development=develop+ment(1d,0i), teacher=teach+er(1d,0i), quickly=quick+ly(1d,0i)\n' +
+    'FAIL: teachers=teach+er+s(1d,1i->FAIL), coloring=color+ing(0d,1i->FAIL), correct(0d->FAIL)\n' +
+    'JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state deriv count and infl count>"}',
 
-Steps:
-1. Strip any inflectional suffix (see list above). What remains is the stem.
-2. Strip any derivational affixes from the stem. What is the root?
-3. Count: root(1) + each derivational affix(+1 each) + each inflectional suffix(+1 each) = total.
-4. Is the total exactly 3?
+    /* 2 — exactly 2 derivational, zero inflectional */
+    header +
+    'RULE: "' + w + '" must have EXACTLY 2 derivational morphemes and ZERO inflectional morphemes.\n' +
+    'Steps: (1) inflectional suffix present? -> fails (2) count derivational affixes -> must be exactly 2.\n' +
+    'PASS: unbelievable=un+believe+able(2d,0i), physically=physic+al+ly(2d,0i), malfunctional=mal+function+al(2d,0i), uncomfortable=un+comfort+able(2d,0i)\n' +
+    'FAIL: correction=correct+ion(1d->FAIL), teachers=teach+er+s(1d,1i->FAIL)\n' +
+    'JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state deriv count and infl count>"}',
 
-Examples that PASS: customers (custom+er+s=3), teachers (teach+er+s=3), managers (manage+er+s=3), unbelievable (un+believe+able=3)
-Examples that FAIL: correction (correct+ion=2), correct (correct=1), coloring (color+ing=2)
+    /* 3 — exactly 1 inflectional, zero derivational */
+    header +
+    'RULE: "' + w + '" must have EXACTLY 1 inflectional morpheme and ZERO derivational morphemes.\n' +
+    'Steps: (1) strip inflectional suffix (2) remaining stem must be a bare root with NO affixes at all.\n' +
+    'PASS: coloring=color+ing(0d,1i), making=make+ing(0d,1i), colors=color+s(0d,1i), walked=walk+ed(0d,1i), taller=tall+er-comparative(0d,1i)\n' +
+    'FAIL: teachers=teach+er+s(1d,1i->has deriv->FAIL), correction=correct+ion(1d,0i->no infl->FAIL)\n' +
+    'JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<confirm infl count and deriv count>"}',
 
-JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state total count found>"}`,
+    /* 4 — exactly 1 derivational AND 1 inflectional */
+    header +
+    'RULE: "' + w + '" must have EXACTLY 1 derivational morpheme AND EXACTLY 1 inflectional morpheme (root+deriv+infl = 3 total).\n' +
+    'Steps: (1) strip inflectional suffix — must find exactly 1 (2) strip 1 derivational affix from stem (3) remainder is bare root.\n' +
+    'PASS: teachers=teach+er(d)+s(i), managers=manage+er(d)+s(i), dentists=dent+ist(d)+s(i), combinations=combine+ation(d)+s(i)\n' +
+    'FAIL: correctly=correct+ly(0d,1i->no deriv->FAIL), coloring=color+ing(0d,1i->FAIL), unbelievable(2d,0i->FAIL)\n' +
+    'JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state deriv and infl count>"}',
 
-    // Cat 2 — exactly 1 derivational, zero inflectional
-    `${preamble}
-RULE: The word must have EXACTLY 1 derivational morpheme and ZERO inflectional morphemes.
-
-Steps:
-1. Check for inflectional suffix (the 8 listed above). If found → the word has an inflectional morpheme → likely fails.
-2. Count derivational affixes (prefixes + suffixes). Must be exactly 1.
-3. The word structure must be: root + 1 derivational affix (and nothing else).
-
-Examples that PASS: correction (correct+ion=1deriv+0infl), development (develop+ment=1deriv), teacher (teach+er=1deriv), quickly (quick+ly=1deriv)
-Examples that FAIL: teachers (teach+er+s → has inflectional -s), coloring (color+ing → -ing is inflectional here), correct (0 derivational)
-
-JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state derivational count and inflectional count>"}`,
-
-    // Cat 3 — exactly 2 derivational, zero inflectional
-    `${preamble}
-RULE: The word must have EXACTLY 2 derivational morphemes and ZERO inflectional morphemes.
-
-Steps:
-1. Check for inflectional suffix. If present → fails (zero inflectional required).
-2. Count derivational affixes. Must be exactly 2.
-3. Valid structure examples: prefix+root+suffix, root+suffix+suffix, prefix+prefix+root.
-
-Examples that PASS: unbelievable (un+believe+able=2deriv), physically (physic+al+ly=2deriv), malfunctional (mal+function+al=2deriv), colonization (colonize+ation=wait: colon+ize+ation=2deriv), uncomfortable (un+comfort+able=2deriv), positionally (position+al+ly=2deriv)
-Examples that FAIL: correction (only 1 deriv), teachers (has -s inflectional), development (only 1 deriv)
-
-JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state derivational count>"}`,
-
-    // Cat 4 — exactly 1 inflectional, zero derivational
-    `${preamble}
-RULE: The word must have EXACTLY 1 inflectional morpheme and ZERO derivational morphemes.
-
-Steps:
-1. The word must end in one of the 8 inflectional suffixes. Strip it — what remains must be a plain root with NO derivational affixes.
-2. The stem after removing the inflectional suffix must be a bare root word.
-3. Zero prefixes (un-, re-, etc.) and zero derivational suffixes allowed.
-
-Examples that PASS: coloring (color+ing=1infl), making (make+ing=1infl), teaching (teach+ing=1infl), colors (color+s=1infl), walked (walk+ed=1infl), taller (tall+er=1infl)
-Examples that FAIL: teachers (teach+er[deriv]+s[infl] → has derivational), correctly (correct+ly → -ly here is infl but that's fine... wait: correctly = correct+ly[infl]=PASS if no deriv)
-
-JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<confirm 1 inflectional and 0 derivational>"}`,
-
-    // Cat 5 — exactly 1 derivational AND 1 inflectional
-    `${preamble}
-RULE: The word must have EXACTLY 1 derivational morpheme AND EXACTLY 1 inflectional morpheme (total = 3 morphemes: root + 1 deriv + 1 infl).
-
-Steps:
-1. Strip the inflectional suffix (must find exactly 1). 
-2. From the remaining stem, strip exactly 1 derivational affix. What remains must be a bare root.
-3. Structure: root + deriv + infl OR deriv + root + infl.
-
-Examples that PASS: teachers (teach+er[deriv]+s[infl]), managers (manage+er[deriv]+s[infl]), dentists (dent+ist[deriv]+s[infl]), combinations (combine+ation[deriv]+s[infl])
-Examples that FAIL: correctly (correct+ly[infl]=1infl+0deriv → wrong cat), unbelievable (2 deriv, 0 infl), coloring (0 deriv, 1 infl)
-
-JSON: {"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<state derivational count and inflectional count found>"}`
   ];
 
-  return questions[catIndex];
+  return q[catIndex] || q[0];
 }
-
 
 // ── GEMINI────────────────────────────────────────────────────────
 async function callGemini(word, letter, catIndex) {
