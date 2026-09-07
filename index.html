@@ -623,12 +623,30 @@ function appendRow(r) {
     const s = cells[r][c];
     td.className = 'wc' + (s.status ? ' '+s.status : '');
     td.id = `wc-${r}-${c}`;
-    td.innerHTML = `
-      <input class="word-input" id="wi-${r}-${c}" type="text"
-        placeholder="${rowLetters[r] ? rowLetters[r]+'…' : 'word…'}"
-        value="${esc(s.word)}" autocomplete="off" spellcheck="false"
-        onkeydown="if(event.key==='Enter'&&!event.isComposing)checkWord(${r},${c})"/>
-      <div class="result-area" id="ra-${r}-${c}">${renderResult(r,c)}</div>`;
+
+    // Build input via DOM (avoids inline string interpolation issues)
+    const inp = document.createElement('input');
+    inp.className = 'word-input';
+    inp.id = `wi-${r}-${c}`;
+    inp.type = 'text';
+    inp.placeholder = (rowLetters[r] ? rowLetters[r] + '…' : 'word…');
+    inp.value = esc(s.word);
+    inp.autocomplete = 'off';
+    inp.spellcheck = false;
+    // Capture r and c correctly via IIFE
+    (function(row, col) {
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.isComposing) checkWord(row, col);
+      });
+    })(r, c);
+
+    const ra = document.createElement('div');
+    ra.className = 'result-area';
+    ra.id = `ra-${r}-${c}`;
+    ra.innerHTML = renderResult(r, c);
+
+    td.appendChild(inp);
+    td.appendChild(ra);
     tr.appendChild(td);
   }
 
