@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stop the Bus — English Morphology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0F172A;
+  --panel:   #1E293B;
+  --panel2:  #263348;
+  --border:  #334155;
+  --accent:  #F59E0B;
+  --text:    #F1F5F9;
+  --muted:   #94A3B8;
+  --deriv:   #22C55E;   /* green  — derivational */
+  --deriv-bg:#052E16;
+  --infl:    #F87171;   /* red    — inflectional */
+  --infl-bg: #2D0A0A;
+  --root-c:  #93C5FD;   /* blue   — root */
+  --valid-bg:#0D2818;
+  --invalid-bg:#1C0A09;
+  --error:   #EF4444;
+  --mono:    'JetBrains Mono', monospace;
+  --sans:    'Inter', sans-serif;
+}
+
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--panel); border-bottom: 3px solid var(--accent);
+  padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+}
+.h-left { display: flex; align-items: center; gap: 10px; }
+header h1 { font-size: 1.25rem; font-weight: 800; }
+header h1 span { color: var(--accent); }
+header .sub { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+.btn-ghost {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+  padding: 6px 12px; border-radius: 7px; cursor: pointer; font-size: 0.75rem;
+  font-family: var(--sans); display: flex; align-items: center; gap: 4px;
+  transition: border-color .2s, color .2s;
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+/* ── SETTINGS ── */
+#settings-panel {
+  background: var(--panel2); border-bottom: 1px solid var(--border);
+  padding: 14px 20px; display: none; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+}
+#settings-panel.open { display: flex; }
+.sf { display: flex; flex-direction: column; gap: 4px; }
+.sf label { font-size: 0.62rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.sf input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 7px 11px; font-family: var(--mono); font-size: 0.78rem;
+  outline: none; min-width: 280px; transition: border-color .2s;
+}
+.sf input:focus { border-color: var(--accent); }
+#model-select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 7px 11px; font-family: var(--sans); font-size: 0.78rem;
+  outline: none; cursor: pointer; min-width: 190px;
+}
+#model-select option { background: var(--panel); }
+#save-btn {
+  background: var(--accent); color: #000; border: none; border-radius: 6px;
+  padding: 7px 16px; font-family: var(--sans); font-size: 0.8rem; font-weight: 700; cursor: pointer;
+}
+.s-ok { display:none; font-size:.72rem; color: var(--deriv); align-self:center;
+  padding:5px 9px; background:var(--deriv-bg); border:1px solid #166534; border-radius:5px; }
+.s-ok.show { display:block; }
+
+/* ── TOP CONTROLS ── */
+.top-bar {
+  padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.letter-wrap { display: flex; flex-direction: column; gap: 4px; }
+.letter-wrap label { font-size: 0.62rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+#starting-letter {
+  background: var(--bg); border: 2px solid var(--border); border-radius: 7px;
+  color: var(--accent); padding: 5px 0; font-size: 1.7rem; font-weight: 800;
+  text-align: center; width: 56px; outline: none; text-transform: uppercase; transition: border-color .2s;
+}
+#starting-letter:focus { border-color: var(--accent); }
+.round-badge {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 14px; font-size: 0.78rem; color: var(--muted);
+}
+.round-badge strong { color: var(--accent); font-size: 1.1rem; margin-left: 5px; }
+.score-pill {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 14px; display: flex; align-items: center; gap: 7px;
+}
+.score-pill .lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing:.07em; }
+.score-num { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+
+/* Legend */
+.legend {
+  display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap;
+}
+.leg-item { display: flex; align-items: center; gap: 4px; font-size: 0.67rem; color: var(--muted); }
+.leg-dot {
+  width: 10px; height: 10px; border-radius: 2px;
+  display: inline-block;
+}
+.leg-dot.root  { background: var(--root-c); }
+.leg-dot.deriv { background: var(--deriv); }
+.leg-dot.infl  { background: var(--infl); }
+
+.btn-reset {
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  padding: 7px 13px; border-radius: 7px; font-family: var(--sans); font-size: 0.77rem;
+  cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 4px;
+}
+.btn-reset:hover { border-color: var(--error); color: var(--error); }
+.btn-stop {
+  background: linear-gradient(135deg,#DC2626,#991B1B); color:#fff; border:none;
+  border-radius:7px; padding:7px 18px; font-family:var(--sans); font-size:0.82rem;
+  font-weight:800; cursor:pointer; box-shadow:0 2px 10px #DC262644;
+  transition: transform .15s; display:flex; align-items:center; gap:5px;
+}
+.btn-stop:hover { transform:translateY(-1px); }
+
+/* ── CELEBRATION ── */
+#celebration {
+  display:none; text-align:center; padding:16px 20px;
+  background: linear-gradient(135deg,#052E16,#0D2818);
+  border-bottom:2px solid var(--deriv);
+  animation: pop .35s cubic-bezier(.36,.07,.19,.97);
+}
+@keyframes pop { 0%{transform:scale(.97);opacity:0} 100%{transform:scale(1);opacity:1} }
+#celebration h2 { font-size:1.3rem; font-weight:800; color:var(--deriv); }
+#celebration p  { font-size:0.78rem; color:var(--muted); margin-top:3px; }
+
+/* ── TABLE WRAP ── */
+.table-wrap { overflow-x: auto; padding: 16px 20px; }
+
+/* ── GAME TABLE ── */
+.game-table { width:100%; min-width:1080px; border-collapse:separate; border-spacing:0; }
+
+.game-table thead th {
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 9px 12px; font-size: 0.63rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  text-align: center; white-space: nowrap;
+}
+.game-table thead th.cat-h {
+  border-top: 3px solid var(--accent); color: var(--text);
+}
+.cat-h .cn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; border-radius:50%; background:var(--accent); color:#000;
+  font-size:0.65rem; font-weight:800; margin-right:5px;
+}
+.cat-h .cr {
+  display:block; font-size:0.58rem; color:var(--muted);
+  font-weight:400; text-transform:none; letter-spacing:0; margin-top:3px; line-height:1.4;
+}
+
+/* Letter column */
+.lc {
+  background: var(--panel); border: 1px solid var(--border);
+  text-align:center; width:46px; cursor:pointer;
+}
+.lc span { font-size:1.4rem; font-weight:800; color:var(--accent); }
+.lc:hover { background: var(--panel2); }
+
+/* Word cells */
+.wc {
+  border: 1px solid var(--border); background: var(--panel);
+  padding: 8px 10px; vertical-align: top; min-width: 170px;
+  transition: background .25s, border-color .25s;
+}
+.wc.valid   { background: var(--valid-bg);   border-color: var(--deriv); }
+.wc.invalid { background: var(--invalid-bg); border-color: var(--error); }
+.wc.loading { border-color: var(--accent); background: #161f30; }
+
+.word-input {
+  width: 100%; background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 7px 10px;
+  font-family: var(--sans); font-size: 0.9rem; font-weight: 600;
+  outline: none; transition: border-color .2s;
+}
+.word-input:focus { border-color: var(--accent); }
+.word-input::placeholder { color: #475569; font-weight:400; font-size:0.78rem; }
+
+/* Result area */
+.result-area { margin-top: 6px; min-height: 24px; }
+
+/* Status badge */
+.s-badge {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:0.65rem; font-weight:700; padding:2px 7px;
+  border-radius:20px; margin-bottom:5px;
+}
+.s-badge.ok  { background:var(--deriv-bg); color:var(--deriv); border:1px solid #166534; }
+.s-badge.err { background:var(--invalid-bg); color:var(--error); border:1px solid #7F1D1D; }
+
+/* ── MORPHEME BREAKDOWN PILLS ── */
+.breakdown-row {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 4px;
+}
+.m-pill {
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px; line-height: 1.5;
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+}
+.m-pill .m-word { font-size: 0.78rem; }
+.m-pill .m-type { font-size: 0.55rem; font-weight: 500; opacity: .75; letter-spacing: .04em; text-transform: uppercase; }
+.m-pill.root  { background: #1E3A5F; color: var(--root-c); border: 1px solid #1d4ed8; }
+.m-pill.deriv { background: var(--deriv-bg); color: var(--deriv); border: 1px solid #166534; }
+.m-pill.infl  { background: var(--infl-bg);  color: var(--infl);  border: 1px solid #7F1D1D; }
+
+.sep { color: var(--border); font-size: 0.85rem; font-weight: 700; align-self: center; }
+
+.count-tag {
+  font-size: 0.65rem; color: var(--muted); margin-left: 2px;
+  background: var(--panel2); padding: 1px 6px; border-radius: 10px;
+  border: 1px solid var(--border); align-self: center;
+}
+
+.reason-text { font-size:0.64rem; color:var(--muted); font-style:italic; line-height:1.4; }
+
+/* Spinner */
+.spin-row { display:flex; align-items:center; gap:6px; font-size:0.7rem; color:var(--muted); padding:4px 0; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── WINNER CELL ── */
+.winner-cell {
+  border:1px solid var(--border); background:var(--panel);
+  padding:8px 8px; vertical-align:top; width:104px;
+}
+.w-lbl { font-size:0.58rem; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
+.bubbles { display:flex; flex-wrap:wrap; gap:4px; min-height:26px; margin-bottom:6px; }
+.bubble {
+  width:26px; height:26px; border-radius:50%;
+  background:var(--panel2); border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.75rem; font-weight:700; color:var(--accent);
+  cursor:pointer; transition:all .15s; position:relative; user-select:none;
+}
+.bubble:hover { border-color:var(--accent); }
+.bubble.on { background:var(--accent); color:#000; border-color:var(--accent); }
+.bubble .rx {
+  display:none; position:absolute; top:-5px; right:-5px;
+  width:13px; height:13px; border-radius:50%; background:var(--error); color:#fff;
+  font-size:0.5rem; font-weight:800; align-items:center; justify-content:center;
+}
+.bubble:hover .rx { display:flex; }
+.add-row { display:flex; gap:3px; }
+.gni {
+  width:40px; background:var(--panel2); border:1px solid var(--border);
+  border-radius:5px; color:var(--text); padding:4px 5px;
+  font-size:0.73rem; text-align:center; outline:none; font-family:var(--mono);
+}
+.gni:focus { border-color:var(--accent); }
+.add-g {
+  background:var(--panel2); border:1px solid var(--border); border-radius:5px;
+  color:var(--accent); font-size:0.78rem; font-weight:700;
+  cursor:pointer; padding:3px 7px; transition:all .15s;
+}
+.add-g:hover { background:var(--accent); color:#000; border-color:var(--accent); }
+
+/* ── TOAST ── */
+#toast {
+  position:fixed; bottom:18px; left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:#1E293B; border:1px solid #475569; color:var(--text);
+  padding:9px 18px; border-radius:7px; font-size:0.8rem;
+  transition:transform .3s; z-index:999; max-width:420px; text-align:center;
+}
+#toast.show { transform:translateX(-50%) translateY(0); }
+#toast.e { border-color:var(--error); color:var(--error); }
+#toast.i { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="h-left">
+    <span style="font-size:1.7rem;filter:drop-shadow(0 0 6px #F59E0B88)">🚌</span>
+    <div>
+      <h1>Stop the <span>Bus</span></h1>
+      <div class="sub">English Morphology · Classroom Edition</div>
+    </div>
+  </div>
+  <button class="btn-ghost" onclick="toggleSettings()">⚙ API Settings</button>
+</header>
+
+<!-- SETTINGS -->
+<div id="settings-panel">
+  <div class="sf">
+    <label>Gemini API Key</label>
+    <input type="password" id="api-key-input" placeholder="AIza..." autocomplete="off" />
+  </div>
+  <div class="sf">
+    <label>Model</label>
+    <select id="model-select">
+      <option value="gemini-3.7-flash">gemini-3.7-flash (recommended)</option>
+      <option value="gemini-3.8-flash">gemini-3.8-flash (latest)</option>
+      <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+      <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+      <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (cheapest)</option>
+    </select>
+  </div>
+  <button id="save-btn" onclick="saveSettings()">Save</button>
+  <div class="s-ok" id="s-ok">✓ Saved</div>
+</div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="letter-wrap">
+    <label>Starting Letter</label>
+    <input type="text" id="starting-letter" maxlength="1" placeholder="A"
+           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/,''); syncLetter()" />
+  </div>
+  <div class="round-badge">Letter: <strong id="letter-display">—</strong></div>
+  <div class="score-pill">
+    <span class="lbl">Score</span>
+    <div class="score-num" id="score-num">0<span style="font-size:.78rem;color:var(--muted);font-weight:400">/5</span></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="leg-item"><span class="leg-dot root"></span> Root</div>
+    <div class="leg-item"><span class="leg-dot deriv"></span> Derivational</div>
+    <div class="leg-item"><span class="leg-dot infl"></span> Inflectional</div>
+  </div>
+
+  <button class="btn-reset" onclick="resetBoard()">↺ Reset</button>
+  <button class="btn-stop"  onclick="stopTheBus()">🛑 STOP THE BUS</button>
+</div>
+
+<!-- CELEBRATION -->
+<div id="celebration">
+  <h2>🎉 All 5 Correct — Bus Stopped!</h2>
+  <p>Great round everyone!</p>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <table class="game-table">
+    <thead>
+      <tr>
+        <th style="width:46px"></th>
+        <th class="cat-h"><span class="cn">1</span>3 Morphemes<span class="cr">exactly 3 morphemes total</span></th>
+        <th class="cat-h"><span class="cn">2</span>1 Derivational<span class="cr">exactly 1 derivational morpheme</span></th>
+        <th class="cat-h"><span class="cn">3</span>2 Derivational<span class="cr">exactly 2 derivational morphemes</span></th>
+        <th class="cat-h"><span class="cn">4</span>1 Inflectional<span class="cr">exactly 1 inflectional, zero derivational</span></th>
+        <th class="cat-h"><span class="cn">5</span>1 Deri + 1 Infl<span class="cr">1 derivational AND 1 inflectional</span></th>
+        <th style="width:104px;text-align:center;font-size:0.6rem;color:var(--muted)">WINNER<br>GROUP</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CATEGORIES ────────────────────────────────────────────────────────────────
+const CATS = [
+  { id:1, rule:"exactly 3 morphemes total (root + any combination of affixes totalling 3 morphemes)" },
+  { id:2, rule:"exactly 1 derivational morpheme (a prefix or suffix that changes word class or creates a new word, e.g. -ness, -er, un-, re-). The word must have ZERO inflectional morphemes." },
+  { id:3, rule:"exactly 2 derivational morphemes and ZERO inflectional morphemes" },
+  { id:4, rule:"exactly 1 inflectional morpheme (grammatical: -s plural, -ed past tense, -ing, -er comparative, -est superlative) and ZERO derivational morphemes" },
+  { id:5, rule:"exactly 1 derivational morpheme AND exactly 1 inflectional morpheme (total 3 morphemes: root + 1 deriv + 1 infl)" }
+];
+
+const NUM_ROWS = 5;
+
+// State
+let rowLetters = Array(NUM_ROWS).fill('');
+// cells[r][c] = { word, status:null|'valid'|'invalid', morphemes:[], reason:'', groups:[] }
+let cells = [];
+
+function initState() {
+  rowLetters = Array(NUM_ROWS).fill('');
+  cells = [];
+  for (let r = 0; r < NUM_ROWS; r++) {
+    cells[r] = [];
+    for (let c = 0; c < 5; c++) {
+      cells[r][c] = { word:'', status:null, morphemes:[], reason:'', groups:[] };
+    }
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function buildTable() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  for (let r = 0; r < NUM_ROWS; r++) {
+    const tr = document.createElement('tr');
+
+    // Letter cell
+    const lc = document.createElement('td');
+    lc.className = 'lc';
+    lc.title = 'Click to set letter for this row';
+    lc.onclick = () => editRowLetter(r);
+    lc.innerHTML = `<span id="lspan-${r}">${rowLetters[r] || '?'}</span>`;
+    tr.appendChild(lc);
+
+    // 5 word cells
+    for (let c = 0; c < 5; c++) {
+      const td = document.createElement('td');
+      td.className = 'wc' + (cells[r][c].status ? ' ' + cells[r][c].status : '');
+      td.id = `wc-${r}-${c}`;
+      td.innerHTML = `
+        <input class="word-input" id="wi-${r}-${c}"
+          type="text"
+          placeholder="${rowLetters[r] ? rowLetters[r]+'…' : 'word…'}"
+          value="${esc(cells[r][c].word)}"
+          autocomplete="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter'&&!event.isComposing) checkWord(${r},${c})" />
+        <div class="result-area" id="ra-${r}-${c}">${renderResult(r, c)}</div>`;
+      tr.appendChild(td);
+    }
+
+    // Winner cell
+    const wtd = document.createElement('td');
+    wtd.className = 'winner-cell';
+    wtd.id = `ww-${r}`;
+    wtd.innerHTML = renderWinner(r);
+    tr.appendChild(wtd);
+
+    tbody.appendChild(tr);
+  }
+}
+
+// Render morpheme breakdown pills
+function renderResult(r, c) {
+  const st = cells[r][c];
+  if (!st.status) return '';
+
+  const isOk = st.status === 'valid';
+  let html = `<div class="s-badge ${isOk ? 'ok' : 'err'}">${isOk ? '✓ CORRECT' : '✗ WRONG'}</div>`;
+
+  if (st.morphemes && st.morphemes.length) {
+    // Count by type
+    const nDeriv = st.morphemes.filter(m => m.type === 'derivational').length;
+    const nInfl  = st.morphemes.filter(m => m.type === 'inflectional').length;
+    const nRoot  = st.morphemes.filter(m => m.type === 'root').length;
+    const total  = st.morphemes.length;
+
+    html += `<div class="breakdown-row">`;
+    st.morphemes.forEach((m, i) => {
+      const cls = m.type === 'root' ? 'root' : m.type === 'derivational' ? 'deriv' : 'infl';
+      const label = m.type === 'root' ? 'root' : m.type === 'derivational' ? 'deriv' : 'infl';
+      html += `<div class="m-pill ${cls}"><span class="m-word">${esc(m.form)}</span><span class="m-type">${label}</span></div>`;
+      if (i < st.morphemes.length - 1) html += `<span class="sep">·</span>`;
+    });
+    html += `<span class="count-tag">${total} morpheme${total>1?'s':''}</span>`;
+    html += `</div>`;
+  }
+
+  if (st.reason) html += `<div class="reason-text">${esc(st.reason)}</div>`;
+  return html;
+}
+
+function renderWinner(r) {
+  const groups = [];
+  for (let c = 0; c < 5; c++)
+    cells[r][c].groups.forEach(g => { if (!groups.includes(g)) groups.push(g); });
+  return `
+    <div class="w-lbl">Winners</div>
+    <div class="bubbles" id="bub-${r}">
+      ${groups.map(g=>`
+        <div class="bubble on" onclick="removeGroup(${r},${g})" title="Remove group ${g}">
+          ${g}<span class="rx">✕</span>
+        </div>`).join('')}
+    </div>
+    <div class="add-row">
+      <input class="gni" id="gi-${r}" type="number" min="1" max="99" placeholder="#"
+             onkeydown="if(event.key==='Enter') addGroup(${r})" />
+      <button class="add-g" onclick="addGroup(${r})">+</button>
+    </div>`;
+}
+
+// ── CHECK WORD ────────────────────────────────────────────────────────────────
+async function checkWord(r, c) {
+  const letter = rowLetters[r] || document.getElementById('starting-letter').value.toUpperCase();
+  const inp = document.getElementById(`wi-${r}-${c}`);
+  const word = inp.value.trim();
+
+  if (!word) return;
+  if (!letter) { showToast('Set the starting letter first.', 'e'); return; }
+  if (!getKey()) { showToast('No API key — click ⚙ API Settings.', 'e'); toggleSettings(); return; }
+
+  const td  = document.getElementById(`wc-${r}-${c}`);
+  const ra  = document.getElementById(`ra-${r}-${c}`);
+
+  cells[r][c].word = word;
+  td.className = 'wc loading';
+  inp.disabled = true;
+  ra.innerHTML = `<div class="spin-row"><div class="spinner"></div><span>Analyzing…</span></div>`;
+
+  try {
+    const result = await callGemini(word, letter, CATS[c].rule);
+    cells[r][c].status    = result.isValid ? 'valid' : 'invalid';
+    cells[r][c].morphemes = result.morphemes || [];
+    cells[r][c].reason    = result.reason    || '';
+    td.className = `wc ${cells[r][c].status}`;
+    ra.innerHTML = renderResult(r, c);
+    updateScore();
+    checkCelebration();
+  } catch (err) {
+    cells[r][c].status = 'invalid';
+    cells[r][c].reason = err.message;
+    td.className = 'wc invalid';
+    ra.innerHTML = `<div class="s-badge err">⚠ Error</div><div class="reason-text">${esc(err.message)}</div>`;
+    showToast(err.message, 'e');
+  } finally {
+    inp.disabled = false;
+    inp.focus();
+  }
+}
+
+// ── GEMINI API ────────────────────────────────────────────────────────────────
+async function callGemini(word, letter, rule) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:generateContent?key=${getKey()}`;
+
+  const prompt = `You are a strict English morphology expert helping a classroom game.
+
+Word to analyze: "${word}"
+Required starting letter: "${letter}"
+Morphological rule to check: "${rule}"
+
+Instructions:
+1. Check if the word starts with "${letter}" (case-insensitive).
+2. Segment the word into ALL its constituent morphemes. Each morpheme must be labeled as exactly one of: "root", "derivational", or "inflectional".
+   - root: the base lexical morpheme
+   - derivational: a prefix or suffix that changes the word class or creates a new word (e.g. un-, re-, -ness, -er agent, -tion, -ful, -less, -ify, -ize, -ly, -able, -ment)
+   - inflectional: a suffix that marks grammatical categories only (plural -s, past tense -ed, progressive -ing, comparative -er, superlative -est, possessive -'s, third person singular -s)
+   Note: "-er" as agent suffix (teach→teacher) is DERIVATIONAL. "-er" as comparative (small→smaller) is INFLECTIONAL.
+3. Check if the morpheme counts STRICTLY match the rule.
+4. Set isValid = true ONLY if BOTH the letter check AND the morpheme rule are satisfied.
+
+Respond ONLY with raw JSON, no markdown, no code fences:
+{
+  "isValid": <boolean>,
+  "morphemes": [
+    { "form": "<the morpheme text, e.g. custom, -er, -s, un->", "type": "<root|derivational|inflectional>" }
+  ],
+  "reason": "<one sentence: why it is valid or which rule it violates>"
+}`;
+
+  const res = await fetch(endpoint, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      contents:[{ parts:[{ text: prompt }] }],
+      generationConfig:{ temperature:0.05, maxOutputTokens:400 }
+    })
+  });
+
+  if (!res.ok) {
+    let msg = `API error ${res.status}`;
+    try {
+      const d = await res.json();
+      if (d?.error?.message) msg = d.error.message;
+      if (res.status === 403) msg = 'Invalid API key or Gemini API not enabled.';
+      if (res.status === 429) msg = 'Rate limit — wait a moment and retry.';
+    } catch(_) {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const raw  = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!raw) throw new Error('Empty response from Gemini.');
+
+  const clean = raw.replace(/```json|```/gi,'').trim();
+  let parsed;
+  try { parsed = JSON.parse(clean); }
+  catch(_) {
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) { try { parsed = JSON.parse(m[0]); } catch(_2) { throw new Error('JSON parse failed.'); } }
+    else throw new Error('Could not parse Gemini response.');
+  }
+  if (typeof parsed.isValid !== 'boolean') throw new Error('Unexpected response structure.');
+  return parsed;
+}
+
+// ── WINNER GROUPS ─────────────────────────────────────────────────────────────
+function addGroup(r) {
+  const inp = document.getElementById(`gi-${r}`);
+  const n = parseInt(inp.value);
+  if (isNaN(n) || n < 1 || n > 99) { showToast('Enter a valid group number (1-99).', 'e'); return; }
+  let added = false;
+  for (let c = 0; c < 5; c++) {
+    if (!cells[r][c].groups.includes(n)) { cells[r][c].groups.push(n); added = true; }
+  }
+  if (!added) { showToast(`Group ${n} already in this row.`, 'i'); return; }
+  inp.value = '';
+  document.getElementById(`ww-${r}`).innerHTML = renderWinner(r);
+}
+function removeGroup(r, n) {
+  for (let c = 0; c < 5; c++) cells[r][c].groups = cells[r][c].groups.filter(g => g !== n);
+  document.getElementById(`ww-${r}`).innerHTML = renderWinner(r);
+}
+
+// ── LETTER SYNC ───────────────────────────────────────────────────────────────
+function syncLetter() {
+  const letter = document.getElementById('starting-letter').value.toUpperCase();
+  document.getElementById('letter-display').textContent = letter || '—';
+  // Apply to all rows that are still empty
+  for (let r = 0; r < NUM_ROWS; r++) {
+    if (!rowLetters[r]) {
+      rowLetters[r] = letter;
+      const sp = document.getElementById(`lspan-${r}`);
+      if (sp) sp.textContent = letter || '?';
+      for (let c = 0; c < 5; c++) {
+        const wi = document.getElementById(`wi-${r}-${c}`);
+        if (wi) wi.placeholder = letter ? letter + '…' : 'word…';
+      }
+    }
+  }
+}
+
+function editRowLetter(r) {
+  const cur = rowLetters[r] || '';
+  const v = prompt(`Letter for row ${r+1}:`, cur);
+  if (v === null) return;
+  const letter = v.toUpperCase().replace(/[^A-Z]/,'').slice(0,1);
+  rowLetters[r] = letter;
+  const sp = document.getElementById(`lspan-${r}`);
+  if (sp) sp.textContent = letter || '?';
+  for (let c = 0; c < 5; c++) {
+    const wi = document.getElementById(`wi-${r}-${c}`);
+    if (wi) wi.placeholder = letter ? letter + '…' : 'word…';
+  }
+}
+
+// ── SCORE & CELEBRATION ───────────────────────────────────────────────────────
+function updateScore() {
+  let valid = 0;
+  for (let r = 0; r < NUM_ROWS; r++)
+    for (let c = 0; c < 5; c++)
+      if (cells[r][c].status === 'valid') valid++;
+  document.getElementById('score-num').innerHTML =
+    `${valid}<span style="font-size:.78rem;color:var(--muted);font-weight:400">/${NUM_ROWS*5}</span>`;
+}
+
+function checkCelebration() {
+  let valid = 0;
+  for (let r = 0; r < NUM_ROWS; r++)
+    for (let c = 0; c < 5; c++)
+      if (cells[r][c].status === 'valid') valid++;
+  document.getElementById('celebration').style.display = (valid === NUM_ROWS * 5) ? 'block' : 'none';
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────────
+function resetBoard() {
+  initState();
+  buildTable();
+  updateScore();
+  document.getElementById('celebration').style.display = 'none';
+  document.getElementById('starting-letter').value = '';
+  document.getElementById('letter-display').textContent = '—';
+}
+
+// ── STOP ──────────────────────────────────────────────────────────────────────
+function stopTheBus() {
+  let valid = 0, answered = 0;
+  for (let r = 0; r < NUM_ROWS; r++)
+    for (let c = 0; c < 5; c++) {
+      const s = cells[r][c].status;
+      if (s) { answered++; if (s==='valid') valid++; }
+    }
+  if (!answered) { showToast('No answers checked yet!', 'i'); return; }
+  showToast(`🛑 Bus stopped! ${valid} / ${answered} correct.`, 'i');
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function toggleSettings() {
+  const p = document.getElementById('settings-panel');
+  p.classList.toggle('open');
+  const k = sessionStorage.getItem('gemini_api_key');
+  const m = sessionStorage.getItem('gemini_model');
+  if (k) document.getElementById('api-key-input').value = k;
+  if (m) document.getElementById('model-select').value = m;
+}
+function saveSettings() {
+  const k = document.getElementById('api-key-input').value.trim();
+  const m = document.getElementById('model-select').value;
+  if (!k) { showToast('Please enter a Gemini API key.','e'); return; }
+  sessionStorage.setItem('gemini_api_key', k);
+  sessionStorage.setItem('gemini_model', m);
+  const ok = document.getElementById('s-ok');
+  ok.classList.add('show');
+  setTimeout(() => { ok.classList.remove('show'); document.getElementById('settings-panel').classList.remove('open'); }, 900);
+}
+function getKey()   { return sessionStorage.getItem('gemini_api_key') || ''; }
+function getModel() { return sessionStorage.getItem('gemini_model') || 'gemini-3.7-flash'; }
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 3500);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+initState();
+buildTable();
+</script>
+</body>
+</html>
