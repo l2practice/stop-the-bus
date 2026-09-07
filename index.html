@@ -716,19 +716,75 @@ async function checkWord(r, c) {
 // ── GEMINI ────────────────────────────────────────────────────────────────────
 async function callGemini(word, letter, rule) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:generateContent?key=${getKey()}`;
+
   const prompt =
-`Morphology. Word:"${word}" Letter:"${letter}" Rule:"${rule}"
-Segment ALL morphemes. Label each: root|derivational|inflectional
-- derivational: changes class/meaning (un-,re-,-ness,-tion,-er agent,-ful,-ly,-able,-ment,-ize)
-- inflectional: grammar only (-s plural,-ed,-ing,-er comparative,-est,-'s)
-isValid=true only if starts with letter AND rule matches exactly.
-JSON only:{"isValid":<bool>,"morphemes":[{"form":"<text>","type":"root|derivational|inflectional"}],"reason":"<one sentence>"}`;
+`You are a strict English morphology expert. Analyze the word carefully.
+
+WORD: "${word}"
+STARTING LETTER CHECK: Does "${word}" start with the letter "${letter}"? (case-insensitive)
+MORPHOLOGICAL RULE TO SATISFY: ${rule}
+
+━━━ MORPHEME SEGMENTATION RULES ━━━
+A morpheme is the smallest meaningful unit. Segment the word into ALL its morphemes.
+
+LABEL each morpheme as exactly one of:
+• "root" — the core lexical base (e.g. "teach", "happy", "correct", "manage")
+• "derivational" — affix that changes word class OR creates a new word:
+    Prefixes: un-, re-, dis-, mis-, pre-, over-, sub-, inter-, co-, de-
+    Suffixes: -tion/-sion, -ment, -ness, -ity, -ance/-ence, -er (agent: one who does),
+              -or, -ist, -ful, -less, -able/-ible, -al, -ic, -ous, -ive, -ly (adj→adv),
+              -ize/-ise, -ify, -en (make), -ary, -ory, -ery, -ward
+• "inflectional" — suffix marking GRAMMAR ONLY (does NOT change word class):
+    -s / -es (plural noun OR 3rd person singular verb)
+    -ed (past tense)
+    -ing (progressive / gerund — still same verb class)
+    -er (comparative adjective: bigger, faster)
+    -est (superlative)
+    -'s (possessive)
+
+⚠️ CRITICAL DISTINCTIONS:
+• "-er" as AGENT (teach→teacher, manage→manager) = DERIVATIONAL (changes verb→noun)
+• "-er" as COMPARATIVE (big→bigger, fast→faster) = INFLECTIONAL (stays adjective)
+• "-ly" turning adjective→adverb (quick→quickly) = DERIVATIONAL
+• "-s" on a noun (customer→customers) = INFLECTIONAL
+• "-s" on a verb (he runs) = INFLECTIONAL
+• "-tion"/"-ion" (correct→correction, act→action) = DERIVATIONAL (verb→noun)
+• "-ment" (develop→development) = DERIVATIONAL (verb→noun)
+• "-ness" (happy→happiness) = DERIVATIONAL (adj→noun)
+• Do NOT split a root further unless it genuinely has a separable affix.
+  e.g. "correct" = one root (do NOT split into "cor-" + "rect")
+  e.g. "manage" = one root (do NOT split into "man-" + "age")
+
+━━━ EXAMPLES ━━━
+"customers" → [custom(root), -er(derivational: one who does), -s(inflectional: plural)] = 3 morphemes
+"correction" → [correct(root), -ion(derivational: verb→noun)] = 2 morphemes
+"teachers" → [teach(root), -er(derivational: agent), -s(inflectional: plural)] = 3 morphemes
+"unbelievable" → [un-(derivational), believe(root), -able(derivational)] = 3 morphemes
+"development" → [develop(root), -ment(derivational)] = 2 morphemes
+"coloring" → [color(root), -ing(inflectional)] = 2 morphemes
+"quickly" → [quick(root), -ly(derivational)] = 2 morphemes
+"running" → [run(root), -ing(inflectional)] = 2 morphemes
+"managers" → [manage(root), -er(derivational: agent), -s(inflectional: plural)] = 3 morphemes
+"physically" → [physic(root), -al(derivational), -ly(derivational)] = 3 morphemes
+"determination" → [determin(root), -ation(derivational)] = 2 morphemes  [NOTE: de- is part of root here]
+"uncomfortable" → [un-(derivational), comfort(root), -able(derivational)] = 3 morphemes
+
+━━━ VALIDATION ━━━
+isValid = true ONLY IF:
+  1. The word starts with "${letter}" (case-insensitive), AND
+  2. The morpheme counts EXACTLY match the rule: ${rule}
+
+Count carefully before setting isValid.
+
+━━━ OUTPUT ━━━
+Respond with ONLY raw JSON, no markdown, no explanation outside JSON:
+{"isValid":<boolean>,"morphemes":[{"form":"<morpheme text>","type":"root|derivational|inflectional"}],"reason":"<one concise sentence explaining the verdict>"}`;
 
   const res = await fetch(endpoint, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       contents:[{parts:[{text:prompt}]}],
-      generationConfig:{ temperature:0, maxOutputTokens:200 }
+      generationConfig:{ temperature:0, maxOutputTokens:350 }
     })
   });
   if (!res.ok) {
